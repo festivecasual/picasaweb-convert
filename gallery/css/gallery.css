@@ -1,0 +1,54 @@
+body {
+    font-family: 'Georgia', serif;
+    background-color: #555;
+    color: #dee;
+}
+
+h1 {
+    padding: 0 1rem;
+}
+
+a {
+    text-decoration: none;
+    color: #dee;
+}
+
+.container {
+    margin: 0 auto;
+    max-width: 1200px;
+    padding: 0 1rem;
+}
+
+.responsive-image {
+    max-width: 100%;
+}
+
+.cell {
+    margin: 1rem;
+}
+
+.cell img {
+    display: block;
+}
+
+.cell .label {
+    max-width: 100%;
+    font-size: 1.5rem;
+}
+
+@media screen and (min-width: 600px) {
+    .grid {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+    }
+    .cell {
+        width: calc(50% - 2rem);
+    }
+}
+
+@media screen and (min-width: 1000px) {
+    .cell {
+        width: calc(100% / 3 - 2rem);
+    }
+}

@@ -1,4 +1,6 @@
 imagemagick/
 gallery_template/
-galleries/
+gallery/galleries/
+gallery/thumbs/
 photos/
+album_thumbs.json

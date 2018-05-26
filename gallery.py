@@ -4,11 +4,28 @@ import xml.etree.ElementTree as ET
 from distutils.dir_util import copy_tree
 import shutil
 import subprocess
+from string import Template
 
-convert_command = str(Path('imagemagick', 'convert.exe')) + ' -resize 512x512^ -extent 256x256 -gravity center %s %s'
+thumb_convert_command = str(Path('imagemagick', 'convert.exe')) + ' -resize 512x512^ -extent 256x256 -gravity center %s %s'
+album_thumb_convert_command = str(Path('imagemagick', 'convert.exe')) + ' -resize 1600x1600^ -extent 1000x1000 -gravity center %s %s'
 
+gallery_cell_template = Template("""
+      <div class="cell">
+        <a href="$url">
+          <img src="$preview" class="responsive-image">
+          <div class="label">
+            $title
+          </div>
+        </a>
+      </div>
+""")
 
-for metadata in sorted(Path('photos').glob('*/metadata.json')):
+gallery_albums = ''
+
+with Path('album_thumbs.json').open('r', encoding='utf8') as hints:
+    album_thumb_hints = json.load(hints)
+
+for metadata in sorted(Path('photos').glob('*/metadata.json'), reverse=True):
     # Extract the URL component from the parent directory name
     url = metadata.parent.name.split('_')[1]
 
@@ -21,7 +38,7 @@ for metadata in sorted(Path('photos').glob('*/metadata.json')):
     config.set('galleryTitle', title)
 
     # Copy the skeleton gallery directory to the proper location
-    copy_tree(str(Path('gallery_template')), str(Path('galleries', url)))
+    copy_tree(str(Path('gallery_template')), str(Path('gallery', 'galleries', url)))
 
     copied_count, skipped_count, thumbnail_count = 0, 0, 0
 
@@ -49,7 +66,7 @@ for metadata in sorted(Path('photos').glob('*/metadata.json')):
         photo_title.text = basic_file.name
 
         # Copy the photo, if necessary
-        photo_target = Path('galleries', url, 'images', source_file.name)
+        photo_target = Path('gallery', 'galleries', url, 'images', source_file.name)
         if not photo_target.exists():
             shutil.copyfile(str(source_file), str(photo_target))
             copied_count += 1
@@ -57,12 +74,36 @@ for metadata in sorted(Path('photos').glob('*/metadata.json')):
             skipped_count += 1
 
         # Create the thumbnail, if necessary
-        thumb_target = Path('galleries', url, 'thumbs', source_file.name)
+        thumb_target = Path('gallery', 'galleries', url, 'thumbs', source_file.name)
         if not thumb_target.exists():
-            subprocess.run(convert_command % (str(source_file), str(thumb_target)))
+            subprocess.run(thumb_convert_command % (str(source_file), str(thumb_target)))
             thumbnail_count += 1
 
     # Write out the config.xml file in the current output directory
-    Path('galleries', url, 'config.xml').write_bytes(ET.tostring(config))
+    Path('gallery', 'galleries', url, 'config.xml').write_bytes(ET.tostring(config))
 
+    # Add this gallery to the table of galleries on the main index page (if it's not empty)
+    gallery_photos = sorted(Path('gallery', 'galleries', url, 'images').glob('*.JPG'))
+    if gallery_photos:
+        gallery_albums += gallery_cell_template.substitute({
+            'url': 'galleries/' + url + '/index.html',
+            'preview': 'thumbs/' + url + '.jpg',
+            'title': title,
+        })
+
+        # Create or regenerate the album thumbnail
+        album_thumb = Path('gallery', 'thumbs', url + '.jpg')
+        album_thumb_source = Path('gallery', 'galleries', url, 'images', album_thumb_hints[url])
+        subprocess.run(album_thumb_convert_command % (str(album_thumb_source), str(album_thumb)))
+
+    # Log to console
     print('Completed %s (%d/%d images copied, %d thumbnails generated)' % (url, copied_count, copied_count + skipped_count, thumbnail_count))
+
+# Write out the main gallery index HTML
+Path('gallery', 'index.html').write_text(
+    Template(Path('gallery', 'index.html.template').read_text(encoding='utf8')).substitute({
+        'title': 'Travel Photo Albums',  #TODO: This would be better if configurable
+        'albums': gallery_albums,
+    }),
+    encoding='utf8'
+)
