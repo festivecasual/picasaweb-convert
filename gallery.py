@@ -42,14 +42,18 @@ for metadata in sorted(Path('photos').glob('*/metadata.json'), reverse=True):
 
     copied_count, skipped_count, thumbnail_count = 0, 0, 0
 
-    # Cycle through photo metadata in active directory
-    for photo_metadata in sorted(metadata.parent.glob('*.JPG.json')):
+    # Cycle through photo metadata in active directory (extra wildcard addresses Google quirk with files sharing a number)
+    for photo_metadata in sorted(metadata.parent.glob('*.JPG*.json')):
         # Extract the photo description from the photo metadata
         with photo_metadata.open('r', encoding='utf8') as photo_metadata_file:
             description = json.load(photo_metadata_file)['description']
 
         # Select the best photo file to use, prioritizing any available -edited version
-        basic_file = photo_metadata.with_name(photo_metadata.stem)
+        # First handle the (1) quirk with files sharing a number
+        if photo_metadata.stem.endswith('(1)'):
+            basic_file = photo_metadata.with_name(photo_metadata.stem[:-3].replace('.', '(1).'))
+        else:
+            basic_file = photo_metadata.with_name(photo_metadata.stem)
         edited_file = basic_file.with_name(basic_file.stem + '-edited.JPG')
         source_file = edited_file if edited_file.exists() else basic_file
 
